@@ -37,13 +37,35 @@ class _PixabayPageState extends State<PixabayPage> {
 
   //アプリを起動した時点で1度だけ全データを取得すればいいからinitStateのタイミングで実行するようにしたい
   Future<void> fetchImage(String text) async {
-    //引数にtext(TextFromFieldで取得したtext)を与えることで、fetchImage関数が動くときに同時に検索ができるようにしておく
-    Response response = await Dio().get(
-      'https://pixabay.com/api/?key=29650737-888bc1c5d45e4f74325569542&q=$text&image_type=photo&pretty=true&per_page=100',
+    //引数にtext(TextFromFieldで取得したtext)を与えることで、fetchImage関数が動くときに同時に検索ができるようにしておく データを一度取得したら書き換えたくないのでfinal型にしておく
+    final response = await Dio().get(
+      //クエリパラメータをこのように書き換えることで見やすくすることができる
+      'https://pixabay.com/api',
+      queryParameters: {
+        'key': '29650737-888bc1c5d45e4f74325569542',
+        'q': text,
+        'image_type': 'photo',
+        'pretty': true,
+        'per_page': 100,
+      },
     );
     imageList = response.data['hits']; //変数imageListに上記URLから取得したhitsのデータを格納している
     setState(() {}); //画面更新
     // print(response.data['hits']);
+  }
+
+  Future<void> shareImage(String url) async {
+    final dir = await getTemporaryDirectory(); //Directory型の変数dirにgetTemporaryDirectoryで取得した画像を保存する先のパスを代入している 一度パスを取得したら書き換えたくないのでfinal型にしておく
+    Response response = await Dio().get(
+      //Response型の変数responseに対してDioでwebformatURLを取得し、responseTypeでバイトデータで受け取るように指定することで編集responseに取得したURLに画像のバイト数を代入している
+      url, //引数urlを記載
+      options: Options(
+        responseType: ResponseType.bytes,
+      ),
+    );
+    final imageFile = await File('${dir.path}/image.png').writeAsBytes(response.data); //取得した画像のバイトデータを一時的に取得したファイルパスのディレクトリにimage.pngと名前をつけて保存をしていて、その保存が完了したファイルパスをImage.pngに代入している
+    // ignore: deprecated_member_use
+    await Share.shareFiles([imageFile.path]); //share_plusパッケージをインストーしてこの一行を追加することで画像を選択するとシェア画面がポップアップで出てくる　シェアするだけでなく自分のスマホに保存もできる
   }
 
   //この関数の処理は初回のビルド時に一度だけ呼び出される overrideされていることによりinitStateの属する_PixabayPageStateクラスの内容がPixabayPageクラスに上書きされることでbuild(アプリの再描画)される仕組みとなっている
@@ -82,17 +104,7 @@ class _PixabayPageState extends State<PixabayPage> {
           return InkWell(
             //InkWellで囲ったウィジェットをボタンとして選択することができる onTapプロパティの中に処理を記述しておくことでボタンを押した時の動作を指定することができる
             onTap: () async {
-              Directory dir = await getTemporaryDirectory(); //Directory型の変数dirにgetTemporaryDirectoryで取得した画像を保存する先のパスを代入している
-              Response response = await Dio().get(
-                //Response型の変数responseに対してDioでwebformatURLを取得し、responseTypeでバイトデータで受け取るように指定することで編集responseに取得したURLに画像のバイト数を代入している
-                image['webformatURL'],
-                options: Options(
-                  responseType: ResponseType.bytes,
-                ),
-              );
-              File imageFile = await File('${dir.path}/image.png').writeAsBytes(response.data); //取得した画像のバイトデータを一時的に取得したファイルパスのディレクトリにimage.pngと名前をつけて保存をしていて、その保存が完了したファイルパスをImage.pngに代入している
-              // ignore: deprecated_member_use
-              await Share.shareFiles([imageFile.path]); //share_plusパッケージをインストーしてこの一行を追加することで画像を選択するとシェア画面がポップアップで出てくる　シェアするだけでなく自分のスマホに保存もできる
+              shareImage(image['webformatURL']); //onTaPが動くとshareImage関数が動く　変数image代入していたindex番号に沿ってURLを取得(引数)して処理が進む
             },
             child: Stack(
               //Stackを使うことでchildren内に記載したwidgetが順番に上に重なっていく
